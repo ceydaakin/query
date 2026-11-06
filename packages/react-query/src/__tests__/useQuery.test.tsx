@@ -771,6 +771,41 @@ describe('useQuery', () => {
     expect(runs).toBe(2)
   })
 
+  it('should not loop when an inline select throws a new error on every run', async () => {
+    const key = createKey()
+    let renders = 0
+    let now = Date.now()
+    vi.spyOn(Date, 'now').mockImplementation(() => ++now)
+
+    function Child() {
+      const [value] = React.useState('child')
+      return <div>{value}</div>
+    }
+
+    function Page() {
+      renders++
+      const state = useQuery<{ result?: Array<number> }, Error, Array<number>>({
+        queryKey: key,
+        queryFn: () => ({}),
+        select: (data) => data.result!.map((n) => n * 2),
+      })
+      return (
+        <div>
+          <div>status: {state.status}</div>
+          <div>error: {state.error?.name}</div>
+          <Child />
+        </div>
+      )
+    }
+
+    const rendered = renderWithClient(queryClient, <Page />)
+
+    await vi.advanceTimersByTimeAsync(0)
+    rendered.getByText('status: error')
+    rendered.getByText('error: TypeError')
+    expect(renders).toBeLessThan(10)
+  })
+
   it('should track properties and only re-render when a tracked property changes', async () => {
     const key = createKey()
     const states: Array<UseQueryResult<string>> = []

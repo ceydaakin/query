@@ -73,6 +73,7 @@ export class QueryObserver<
     TQueryKey
   >
   #selectError: TError | null
+  #selectErrorUpdatedAt = 0
   #selectFn?: (data: TQueryData) => TData
   #selectResult?: TData
   // This property keeps track of the last query with defined data.
@@ -699,6 +700,7 @@ export class QueryObserver<
           this.#selectError = null
         } catch (selectError) {
           this.#selectError = selectError as TError
+          this.#selectErrorUpdatedAt = Date.now()
         }
       }
     } else if (data === undefined) {
@@ -710,7 +712,9 @@ export class QueryObserver<
     if (this.#selectError) {
       error = this.#selectError
       data = this.#selectResult
-      errorUpdatedAt = Date.now()
+      // reuse the time the select error was caught, so recomputing the result
+      // with a memoized select does not produce a new result object every time
+      errorUpdatedAt = this.#selectErrorUpdatedAt
       status = 'error'
       isPlaceholderData = false
     }
